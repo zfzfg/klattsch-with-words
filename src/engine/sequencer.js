@@ -53,87 +53,121 @@ function normalize(input) {
     .replace(HOMOGLYPH_RE, ch => HOMOGLYPH_MAP[ch] ?? ch);
 }
 
-export function tokenize(input) {
-  input = normalize(input);
-  input = input.replace(/\/\*[\s\S]*?\*\//g, '');
-  const stripped = input.replace(/(^|\s)#.*$/gm, '$1');
-  const parts = stripped.trim().split(/\s+/).filter(Boolean);
-  const tokens = [];
-  for (const part of parts) {
-    if (part === '(') { tokens.push({ type: 'syllable_open' }); continue; }
-    if (part === ')') { tokens.push({ type: 'syllable_close' }); continue; }
-    if (part in PAUSE_MS) {
-      tokens.push({ type: 'pause', ms: PAUSE_MS[part] });
-      continue;
-    }
+function classifyPart(part) {
+  if (part === '(') return { type: 'syllable_open' };
+  if (part === ')') return { type: 'syllable_close' };
+  if (part in PAUSE_MS) return { type: 'pause', ms: PAUSE_MS[part] };
+  if (part === '!' || part === "'") return { type: 'stress_mark' };
 
-    if (part === '!' || part === "'") {
-      for (let i = tokens.length - 1; i >= 0; i--) {
-        if (tokens[i].type === 'phoneme') { tokens[i].stressed = true; break; }
-      }
-      continue;
-    }
-    // Bracket form (verbose, original): [base=140] [rate=120] [pause=300]
-    const bracket = part.match(/^\[(\w+)=(-?\d+(?:\.\d+)?)\]$/);
-    if (bracket) {
-      tokens.push({ type: 'directive', key: bracket[1], value: Number(bracket[2]), relative: false });
-      continue;
-    }
-
-    const noteForm = part.match(/^(b)(=)?([A-G][b#]?-?\d+)$/);
-    if (noteForm) {
-      const hz = noteToHz(noteForm[3]);
-      if (hz != null) {
-        tokens.push({ type: 'directive', key: 'base', value: hz, relative: false });
-        continue;
-      }
-    }
-
-    const compact = part.match(/^([a-z])(?:(=)?(([+-])?\d+(?:\.\d+)?))?$/);
-    if (compact) {
-      const [, letter, eq, full, sign] = compact;
-      const keyMap = {
-        b: 'base', r: 'rate', p: 'pause', s: 'scale',
-        v: 'vibrato', w: 'vibratoRate',
-        m: 'tremolo', n: 'tremoloRate',
-        h: 'aspiration', t: 'tilt', g: 'effort',
-      };
-      const key = keyMap[letter];
-      if (key) {
-        if (full === undefined) {
-          // Bare letter: reset to initial value. `p` alone has no useful
-          // meaning so we drop it silently.
-          if (key !== 'pause') {
-            tokens.push({ type: 'directive', key, reset: true });
-          }
-        } else {
-          const value = Number(full);
-          const relative = !eq && (sign === '+' || sign === '-');
-          tokens.push({ type: 'directive', key, value, relative });
-        }
-        continue;
-      }
-    }
-
-    const phoneme = part.match(/^([A-Z]+)(['!])?(?:\(([+-]\d+)\)|([+-]\d+))?$/);
-    if (phoneme) {
-      const transientDelta = phoneme[3] !== undefined ? Number(phoneme[3]) : null;
-      const stickyDelta = phoneme[4] !== undefined ? Number(phoneme[4]) : null;
-      tokens.push({
-        type: 'phoneme',
-        code: phoneme[1],
-        stressed: phoneme[2] !== undefined,
-        pitchDelta: transientDelta ?? stickyDelta ?? 0,
-        transient: transientDelta !== null,
-      });
-      continue;
-    }
-    tokens.push({ type: 'unknown', text: part });
+  const bracket = part.match(/^\[(\w+)=(-?\d+(?:\.\d+)?)\]$/);
+  if (bracket) {
+    return { type: 'directive', key: bracket[1], value: Number(bracket[2]), relative: false };
   }
-  return tokens;
+
+  const noteForm = part.match(/^(b)(=)?([A-G][b#]?-?\d+)$/);
+  if (noteForm) {
+    const hz = noteToHz(noteForm[3]);
+    if (hz != null) return { type: 'directive', key: 'base', value: hz, relative: false };
+  }
+
+  const compact = part.match(/^([a-z])(?:(=)?(([+-])?\d+(?:\.\d+)?))?$/);
+  if (compact) {
+    const [, letter, eq, full, sign] = compact;
+    const keyMap = {
+      b: 'base', r: 'rate', p: 'pause', s: 'scale',
+      v: 'vibrato', w: 'vibratoRate',
+      m: 'tremolo', n: 'tremoloRate',
+      h: 'aspiration', t: 'tilt', g: 'effort',
+    };
+    const key = keyMap[letter];
+    if (key) {
+      if (full === undefined) {
+        // Bare letter reset to initial value, drop bare `p`
+        if (key !== 'pause') return { type: 'directive', key, reset: true };
+        return null;
+      }
+      const value = Number(full);
+      const relative = !eq && (sign === '+' || sign === '-');
+      return { type: 'directive', key, value, relative };
+    }
+  }
+
+  const phoneme = part.match(/^([A-Z]+)(['!])?(?:\(([+-]\d+(?:\.\d+)?)\)|([+-]\d+(?:\.\d+)?))?$/);
+  if (phoneme) {
+    const transientDelta = phoneme[3] !== undefined ? Number(phoneme[3]) : null;
+    const stickyDelta = phoneme[4] !== undefined ? Number(phoneme[4]) : null;
+    return {
+      type: 'phoneme',
+      code: phoneme[1],
+      stressed: phoneme[2] !== undefined,
+      pitchDelta: transientDelta ?? stickyDelta ?? 0,
+      transient: transientDelta !== null,
+    };
+  }
+
+  return { type: 'unknown', text: part };
 }
 
-export function compile(tokens, opts = {}) {
+export function tokenize(rawInput) {
+  const source = normalize(rawInput);
+  const len = source.length;
+  const tokens = [];
+  let i = 0;
+
+  const findBlockEnd = (start) => {
+    const end = source.indexOf('*/', start + 2);
+    return end === -1 ? len : end + 2;
+  };
+
+  while (i < len) {
+    const c = source[i];
+    if (/\s/.test(c)) { i++; continue; }
+    // Line comment: # only at boundary (start of input or after whitespace).
+    if (c === '#' && (i === 0 || /\s/.test(source[i - 1]))) {
+      while (i < len && source[i] !== '\n') i++;
+      continue;
+    }
+    // Block comment
+    if (c === '/' && source[i + 1] === '*') {
+      i = findBlockEnd(i);
+      continue;
+    }
+
+    const srcStart = i;
+    let part = '';
+    while (i < len && !/\s/.test(source[i])) {
+      if (source[i] === '/' && source[i + 1] === '*') {
+        i = findBlockEnd(i);
+        continue;
+      }
+      part += source[i];
+      i++;
+    }
+    const srcEnd = i;
+    if (!part) continue;
+
+    const tok = classifyPart(part);
+    if (!tok) continue;
+    tok.srcStart = srcStart;
+    tok.srcEnd = srcEnd;
+
+    if (tok.type === 'stress_mark') {
+      for (let j = tokens.length - 1; j >= 0; j--) {
+        if (tokens[j].type === 'phoneme') { tokens[j].stressed = true; break; }
+      }
+      continue;
+    }
+    tokens.push(tok);
+  }
+
+  return { tokens, source };
+}
+
+export function compile(parsed, opts = {}) {
+  // accept { tokens, source } shape from tokenize()
+  // fallback to legacy otherwise
+  const tokens = Array.isArray(parsed) ? parsed : parsed.tokens;
+  const source = Array.isArray(parsed) ? '' : (parsed.source ?? '');
   const initialBaseF0      = opts.baseF0 ?? DEFAULTS.baseF0;
   const initialRate        = opts.rate ?? DEFAULTS.rate;
   const initialScale       = opts.scale ?? 1.0;
@@ -157,7 +191,26 @@ export function compile(tokens, opts = {}) {
   // Bare `b` / `r` / `s` / `v` / `h` / `t` / `g` reset to opts values
   const schedule = [];
   const warnings = [];
+  const phrases = [];
   let timeMs = 0;
+  // phrase covers [phraseSrcStart .. token.srcEnd) of source and time
+  // [phraseTimeStart .. timeMs] when the next sound finishes
+  let phraseSrcStart = 0;
+  let phraseTimeStart = 0;
+  const emitPhrase = (t) => {
+    phrases.push({
+      srcStart: phraseSrcStart,
+      srcEnd: t.srcEnd,
+      // the audible token
+      tokenSrcStart: t.srcStart,
+      tStartMs: phraseTimeStart,
+      tEndMs: timeMs,
+      kind: t.type,
+      phoneme: t.type === 'phoneme' ? t.code : null,
+    });
+    phraseSrcStart = t.srcEnd;
+    phraseTimeStart = timeMs;
+  };
 
   // Apply the running formant scale to a phoneme parameter set.
   // `glideTo` overrides the formant fields for diphthong endpoints
@@ -215,6 +268,7 @@ export function compile(tokens, opts = {}) {
     const slot = rate / syllableQueue.length;
     for (const t of syllableQueue) {
       renderPhoneme(t, slot);
+      emitPhrase(t);
       if (!t.transient) f0 += t.pitchDelta;
     }
     syllableQueue = [];
@@ -320,6 +374,7 @@ export function compile(tokens, opts = {}) {
         case 'pause':
           silence();
           timeMs += Math.abs(t.value);
+          emitPhrase(t);
           break;
         default:
           warnings.push(`unknown directive: ${t.key}`);
@@ -330,6 +385,7 @@ export function compile(tokens, opts = {}) {
     if (t.type === 'pause') {
       silence();
       timeMs += t.ms;
+      emitPhrase(t);
       continue;
     }
 
@@ -342,6 +398,7 @@ export function compile(tokens, opts = {}) {
 
     const phoneRate = t.stressed ? rate * DEFAULTS.stressDurationFactor : rate;
     renderPhoneme(t, phoneRate);
+    emitPhrase(t);
 
     if (!t.transient) f0 += t.pitchDelta;
   }
@@ -355,7 +412,10 @@ export function compile(tokens, opts = {}) {
   silence(DEFAULTS.fadeOutMs);
   timeMs += DEFAULTS.trailOffMs;
 
-  return { schedule, totalMs: timeMs, warnings };
+  // Hold the final phrase highlighted
+  if (phrases.length) phrases[phrases.length - 1].tEndMs = timeMs;
+
+  return { schedule, totalMs: timeMs, warnings, phrases, source };
 }
 
 export function compileString(input, opts) {

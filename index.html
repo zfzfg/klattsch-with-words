@@ -19,6 +19,8 @@
     <a href="https://discord.gg/9YESUYG4xC" target="_blank" rel="noopener">discord</a>
     ·
     <a href="mailto:tgies@tgies.net?subject=klattsch">email</a>
+    ·
+    <a href="#" id="changelog-link">changelog</a>
     <span class="support-sep">|</span>
     <span class="support-label">support via:</span>
     <a href="https://github.com/sponsors/tgies" target="_blank" rel="noopener">gh sponsors</a>
@@ -36,12 +38,19 @@
     <a class="announce-cta" href="https://discord.gg/9YESUYG4xC" target="_blank" rel="noopener">join →</a>
   </section>
 
+  <aside class="ja-greeting" lang="ja">
+    <p><strong>日本のユーザーの皆様へ</strong></p>
+    <p>たくさんの反響をいただき、本当にありがとうございます。身に余る思いです。日本語の音素対応など、klattsch をより使いやすくするための改良を進めています。続報をお楽しみに。</p>
+  </aside>
+
   <section id="main">
     <fieldset>
       <legend>phoneme sequence</legend>
       <textarea id="seq" rows="10" cols="80" autocomplete="off" spellcheck="false" wrap="soft">HH AH L OW</textarea>
+      <div id="playback-display" class="playback-display" aria-live="off"></div>
       <div class="row controls-row">
         <button id="speak">speak</button>
+        <button id="stop" disabled>stop</button>
         <button id="render">render .wav</button>
         <button id="render-video">render video</button>
         <button id="share">share link</button>
@@ -52,6 +61,7 @@
         <input id="filename" type="text" placeholder="optional" autocomplete="off" spellcheck="false">
         <label for="video-title">video title</label>
         <input id="video-title" type="text" placeholder="optional" autocomplete="off" spellcheck="false">
+        <label class="checkbox-label"><input id="video-karaoke" type="checkbox" checked> karaoke highlight</label>
       </div>
       <details class="syntax">
         <summary>syntax help</summary>
@@ -214,6 +224,51 @@ examples
       <p>email <a href="mailto:support@crashunited.com?subject=klattsch%20sponsorship">support@crashunited.com</a>.</p>
     </div>
   </footer>
+
+  <dialog id="changelog-dialog" class="changelog-dialog">
+    <div class="changelog-header">
+      <strong>changelog</strong>
+      <button type="button" class="changelog-close" aria-label="close">close</button>
+    </div>
+    <div class="changelog-body">
+      <h3>v0.3.0</h3>
+      <ul>
+        <li>karaoke playback: live display under the textarea highlights the active phrase as audio runs</li>
+        <li>video render: phrase teleprompter with smooth vertical scroll</li>
+        <li>video readability: subtitle back gradient, text drop shadow, highlight rect outline</li>
+        <li>optional <em>karaoke highlight</em> toggle on the video render</li>
+        <li>stop button cancels live audition mid-utterance</li>
+        <li>parser bugfix: pitch bends now accept decimals (<code>AY+1.5</code>, <code>OW(-0.25)</code>)</li>
+        <li>this changelog popup</li>
+      </ul>
+      <h3>v0.2.0</h3>
+      <ul>
+        <li>tremolo: <code>m</code> depth and <code>n</code> rate directives, plus output volume slider</li>
+        <li>audition buttons get example words with the relevant letters underlined</li>
+        <li>live slider state mirror, with an <em>insert</em> button to prepend as directives</li>
+        <li>video render: custom title in the upper-left, fade gradient at the top</li>
+        <li>render-cancel button, spacebar guard</li>
+        <li>custom export filename input</li>
+        <li><code>/* */</code> block comments</li>
+        <li>Unicode normalization: homoglyphs to Latin, zero-width chars stripped</li>
+        <li>localStorage autosave for the textarea</li>
+        <li>WAV files embed the source utterance string in the RIFF INFO chunk</li>
+      </ul>
+      <h3>v0.1.2</h3>
+      <ul>
+        <li>engine: state reset on each play, no carry-over between utterances</li>
+        <li>engine: glottal phase wrap fix (the 374 GHz <code>bF34</code> situation)</li>
+      </ul>
+      <h3>v0.1.1</h3>
+      <ul>
+        <li>npm package fixes (bin name matches package name)</li>
+      </ul>
+      <h3>v0.1.0</h3>
+      <ul>
+        <li>initial release: parallel-formant engine, ARPABET phoneme strings, directive language, WAV/video export</li>
+      </ul>
+    </div>
+  </dialog>
 
   <script type="module" src="src/main.js"></script>
 </body>

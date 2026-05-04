@@ -5,15 +5,18 @@ import { encodeWav } from './engine/wav.js';
 
 const seqInput   = document.getElementById('seq');
 const speakBtn   = document.getElementById('speak');
+const stopBtn    = document.getElementById('stop');
 const renderBtn  = document.getElementById('render');
 const videoBtn   = document.getElementById('render-video');
 const shareBtn   = document.getElementById('share');
 const submitBtn  = document.getElementById('submit-preset');
 const filenameInput = document.getElementById('filename');
 const videoTitleInput = document.getElementById('video-title');
+const videoKaraokeInput = document.getElementById('video-karaoke');
 const stateMirror = document.getElementById('state-mirror');
 const stateDisplay = document.getElementById('state-display');
 const insertStateBtn = document.getElementById('insert-state');
+const playbackDisplay = document.getElementById('playback-display');
 const phonemesDiv = document.getElementById('phonemes');
 const f0Slider          = document.getElementById('f0');
 const f0Val             = document.getElementById('f0val');
@@ -44,6 +47,107 @@ let node = null;
 let gainNode = null;
 let audioInit = null;
 let videoRender = null;
+
+// Karaoke playback state
+// fine for now but need to revisit the textarea overlay thing
+const playback = {
+  phrases: [],
+  source: '',
+  totalMs: 0,
+  startedAt: 0,        // ctx.currentTime in seconds
+  activeIndex: -1,
+  rafId: 0,
+  onUpdate: null,
+};
+
+function findActivePhrase(phrases, ms) {
+  for (let i = 0; i < phrases.length; i++) {
+    if (ms < phrases[i].tEndMs) return i;
+  }
+  return -1;
+}
+
+function notifyPlayback() {
+  if (playback.onUpdate) playback.onUpdate(playback);
+}
+
+function startPlayback(phrases, source, totalMs) {
+  stopPlayback();
+  playback.phrases = phrases;
+  playback.source = source;
+  playback.totalMs = totalMs;
+  playback.startedAt = ctx.currentTime;
+  playback.activeIndex = phrases.length ? 0 : -1;
+  notifyPlayback();
+  if (!phrases.length) return;
+  const tick = () => {
+    if (!playback.phrases.length) { playback.rafId = 0; return; }
+    const elapsedMs = (ctx.currentTime - playback.startedAt) * 1000;
+    if (elapsedMs >= playback.totalMs) {
+      playback.activeIndex = -1;
+      playback.rafId = 0;
+      notifyPlayback();
+      return;
+    }
+    const idx = findActivePhrase(playback.phrases, elapsedMs);
+    if (idx !== playback.activeIndex) {
+      playback.activeIndex = idx;
+      notifyPlayback();
+    }
+    playback.rafId = requestAnimationFrame(tick);
+  };
+  playback.rafId = requestAnimationFrame(tick);
+}
+
+function stopPlayback() {
+  if (playback.rafId) cancelAnimationFrame(playback.rafId);
+  playback.rafId = 0;
+  if (playback.activeIndex !== -1) {
+    playback.activeIndex = -1;
+    notifyPlayback();
+  }
+}
+
+function renderPlaybackDisplay() {
+  stopBtn.disabled = playback.activeIndex < 0;
+  if (!playback.source) {
+    playbackDisplay.replaceChildren();
+    return;
+  }
+  const idx = playback.activeIndex;
+  const phr = idx >= 0 ? playback.phrases[idx] : null;
+  const frag = document.createDocumentFragment();
+  if (phr) {
+    if (phr.srcStart > 0) {
+      frag.appendChild(document.createTextNode(playback.source.slice(0, phr.srcStart)));
+    }
+    // split directives from the audible token
+    const tokenStart = phr.tokenSrcStart ?? phr.srcStart;
+    if (tokenStart > phr.srcStart) {
+      const pre = document.createElement('span');
+      pre.className = 'active-pre';
+      pre.textContent = playback.source.slice(phr.srcStart, tokenStart);
+      frag.appendChild(pre);
+    }
+    const span = document.createElement('span');
+    span.className = 'active';
+    span.textContent = playback.source.slice(tokenStart, phr.srcEnd);
+    frag.appendChild(span);
+    if (phr.srcEnd < playback.source.length) {
+      frag.appendChild(document.createTextNode(playback.source.slice(phr.srcEnd)));
+    }
+    playbackDisplay.replaceChildren(frag);
+    span.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  } else {
+    playbackDisplay.textContent = playback.source;
+  }
+}
+playback.onUpdate = renderPlaybackDisplay;
+
+stopBtn.addEventListener('click', () => {
+  if (node) node.port.postMessage({ type: 'reset' });
+  stopPlayback();
+});
 
 // Lazy init: AudioContext can only start on a user gesture, so we wait
 // for the first interaction (speak / canned / phoneme button / Enter).
@@ -121,7 +225,7 @@ function compileOpts() {
 
 async function speak(text) {
   await ensureAudio();
-  const { schedule, warnings } = compileString(text, compileOpts());
+  const { schedule, warnings, phrases, source, totalMs } = compileString(text, compileOpts());
   if (warnings.length) {
     setStatus(warnings.join(' '), 'warn');
   } else {
@@ -129,6 +233,7 @@ async function speak(text) {
   }
   node.port.postMessage({ type: 'reset' });
   node.port.postMessage({ type: 'schedule', schedule });
+  startPlayback(phrases, source, totalMs);
 }
 
 async function renderWav(text) {
@@ -171,7 +276,7 @@ async function renderVideo(text) {
   const W = 1280, H = 720;
   const FPS = 30;
 
-  const { schedule, totalMs, warnings } = compileString(text, compileOpts());
+  const { schedule, totalMs, warnings, phrases, source } = compileString(text, compileOpts());
 
   // text is another canvas that gets recomposited every frame
   const spec = document.createElement('canvas');
@@ -262,49 +367,181 @@ async function renderVideo(text) {
   const minDb = analyser.minDecibels;
   const dbRange = analyser.maxDecibels - minDb;
 
-  function wrapText(c, t, maxW) {
-    const words = t.split(/\s+/);
-    const lines = []; let cur = '';
-    for (const w of words) {
-      const tt = cur ? cur + ' ' + w : w;
-      if (c.measureText(tt).width > maxW) {
-        if (cur) lines.push(cur);
-        cur = w;
-      } else { cur = tt; }
+  // Word-wrap the source into display lines
+  function wrapWithRanges(c, src, maxW) {
+    const out = [];
+    let cursor = 0;
+    for (const block of src.split('\n')) {
+      const blockStart = cursor;
+      const words = [];
+      const re = /\S+/g;
+      let m;
+      while ((m = re.exec(block)) !== null) {
+        words.push({ srcStart: blockStart + m.index, srcEnd: blockStart + m.index + m[0].length });
+      }
+      if (!words.length) {
+        out.push({ text: '', srcStart: blockStart, srcEnd: blockStart });
+        cursor += block.length + 1;
+        continue;
+      }
+      let lineWords = [];
+      const flush = () => {
+        if (!lineWords.length) return;
+        const s = lineWords[0].srcStart;
+        const e = lineWords[lineWords.length - 1].srcEnd;
+        out.push({ text: src.slice(s, e), srcStart: s, srcEnd: e });
+        lineWords = [];
+      };
+      for (const w of words) {
+        if (!lineWords.length) { lineWords.push(w); continue; }
+        const candText = src.slice(lineWords[0].srcStart, w.srcEnd);
+        if (c.measureText(candText).width > maxW) {
+          flush();
+          lineWords = [w];
+        } else {
+          lineWords.push(w);
+        }
+      }
+      flush();
+      cursor += block.length + 1;
     }
-    if (cur) lines.push(cur);
-    return lines;
+    return out;
   }
+
+  // Compute layout once - source and font are fixed for the render's duration.
+  cctx.font = 'bold 26px ui-monospace, "Cascadia Code", Consolas, monospace';
+  const sourceLines = wrapWithRanges(cctx, source, W - 24 * 2);
+
+  // Smooth scroll state, yTop snaps to the active line's position
+  // lerp easing
+  let scrollY = null;
+  let scrollLastT = 0;
+  const SCROLL_TAU = 0.15;
 
   function compose() {
     cctx.drawImage(spec, 0, 0);
 
-    // Phoneme string overlay along the bottom edge
+    // blend in subtitle backplate thing
     cctx.save();
-    cctx.fillStyle = '#fff';
+    const bp = cctx.createLinearGradient(0, H * 0.45, 0, H);
+    bp.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    bp.addColorStop(0.5, 'rgba(0, 0, 0, 0.32)');
+    bp.addColorStop(1, 'rgba(0, 0, 0, 0.62)');
+    cctx.fillStyle = bp;
+    cctx.fillRect(0, Math.floor(H * 0.45), W, Math.ceil(H * 0.55));
+    cctx.restore();
+
+    cctx.save();
     cctx.font = 'bold 26px ui-monospace, "Cascadia Code", Consolas, monospace';
     cctx.textBaseline = 'top';
     const pad = 24;
-    const lines = wrapText(cctx, text, W - pad * 2);
     const lh = 34;
-    const baseAlpha = 0.5;
+
+    const elapsedMs = performance.now() - t0;
+    const karaoke = videoKaraokeInput.checked;
+    const activeIdx = karaoke ? findActivePhrase(phrases, elapsedMs) : -1;
+    const activePhr = activeIdx >= 0 ? phrases[activeIdx] : null;
+
+    // Find which source-line contains the active phrase so we can pin it
+    let activeLineIdx = -1;
+    if (activePhr) {
+      for (let li = 0; li < sourceLines.length; li++) {
+        const ln = sourceLines[li];
+        if (activePhr.srcStart >= ln.srcStart && activePhr.srcStart <= ln.srcEnd) {
+          activeLineIdx = li;
+          break;
+        }
+      }
+    }
+
+    // adapt pinning position to line structure of source
+    const pinY = sourceLines.length > 1 ? H - 220 : H - 80;
+    const targetY = activeLineIdx >= 0
+      ? pinY - activeLineIdx * lh
+      : H - sourceLines.length * lh - pad;
+
+    const now = performance.now();
+    const dt = scrollLastT ? Math.min(0.1, (now - scrollLastT) / 1000) : 0;
+    scrollLastT = now;
+    if (scrollY === null) scrollY = targetY;
+    else scrollY += (targetY - scrollY) * (1 - Math.exp(-dt / SCROLL_TAU));
+    const yTop = scrollY;
+
     const fadeStart = 130;
     const fadeEnd = 50;
-    let y = H - lines.length * lh - pad;
-    for (const line of lines) {
-      let alpha = baseAlpha;
+
+    for (let li = 0; li < sourceLines.length; li++) {
+      const ln = sourceLines[li];
+      const y = yTop + li * lh;
+      if (y < -lh || y > H) continue;
+
+      let alpha = 0.55;
       if (y < fadeStart) {
-        alpha = baseAlpha * Math.max(0, Math.min(1, (y - fadeEnd) / (fadeStart - fadeEnd)));
+        alpha *= Math.max(0, Math.min(1, (y - fadeEnd) / (fadeStart - fadeEnd)));
       }
+
+      let tokenX = 0, tokenW = 0, tokenStart = 0, tokenEnd = 0;
+      if (activePhr) {
+        const phStart = Math.max(activePhr.srcStart, ln.srcStart);
+        const phEnd = Math.min(activePhr.srcEnd, ln.srcEnd);
+        if (phStart < phEnd) {
+          const tStart = activePhr.tokenSrcStart ?? activePhr.srcStart;
+          // Prefix portion (directives/whitespace leading up to the token)
+          const preStart = phStart;
+          const preEnd = Math.max(phStart, Math.min(phEnd, tStart));
+          if (preStart < preEnd) {
+            const beforeText = ln.text.slice(0, preStart - ln.srcStart);
+            const preText = ln.text.slice(preStart - ln.srcStart, preEnd - ln.srcStart);
+            const px = pad + cctx.measureText(beforeText).width;
+            const pw = cctx.measureText(preText).width;
+            cctx.globalAlpha = Math.max(alpha, 0.45);
+            cctx.fillStyle = 'rgba(255, 106, 0, 0.32)';
+            cctx.fillRect(px - 2, y - 2, pw + 4, lh - 6);
+          }
+          // Token portion (the sound itself)
+          tokenStart = Math.max(phStart, tStart);
+          tokenEnd = phEnd;
+          if (tokenStart < tokenEnd) {
+            const beforeText = ln.text.slice(0, tokenStart - ln.srcStart);
+            const ovText = ln.text.slice(tokenStart - ln.srcStart, tokenEnd - ln.srcStart);
+            tokenX = pad + cctx.measureText(beforeText).width;
+            tokenW = cctx.measureText(ovText).width;
+            cctx.globalAlpha = Math.max(alpha, 0.9);
+            cctx.fillStyle = '#ff6a00';
+            cctx.fillRect(tokenX - 4, y - 3, tokenW + 8, lh - 4);
+            cctx.lineWidth = 1.5;
+            cctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+            cctx.strokeRect(tokenX - 4, y - 3, tokenW + 8, lh - 4);
+          }
+        }
+      }
+
+      // drop shadow on non-active text
+      cctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      cctx.shadowBlur = 4;
+      cctx.shadowOffsetY = 1;
       cctx.globalAlpha = alpha;
-      cctx.fillText(line, pad, y);
-      y += lh;
+      cctx.fillStyle = '#fff';
+      cctx.fillText(ln.text, pad, y);
+      cctx.shadowColor = 'transparent';
+      cctx.shadowBlur = 0;
+      cctx.shadowOffsetY = 0;
+
+      if (tokenW > 0) {
+        const ovText = ln.text.slice(tokenStart - ln.srcStart, tokenEnd - ln.srcStart);
+        cctx.globalAlpha = 1;
+        cctx.fillStyle = '#000';
+        cctx.fillText(ovText, tokenX, y);
+      }
     }
     cctx.restore();
 
     // Attribution watermark, top-right corner
     cctx.save();
-    cctx.globalAlpha = 0.6;
+    cctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    cctx.shadowBlur = 4;
+    cctx.shadowOffsetY = 1;
+    cctx.globalAlpha = 0.7;
     cctx.fillStyle = '#fff';
     cctx.font = '22px ui-monospace, "Cascadia Code", Consolas, monospace';
     cctx.textBaseline = 'top';
@@ -315,7 +552,10 @@ async function renderVideo(text) {
     const titleText = videoTitleInput.value.trim();
     if (titleText) {
       cctx.save();
-      cctx.globalAlpha = 0.6;
+      cctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      cctx.shadowBlur = 4;
+      cctx.shadowOffsetY = 1;
+      cctx.globalAlpha = 0.7;
       cctx.fillStyle = '#fff';
       cctx.font = '22px ui-monospace, "Cascadia Code", Consolas, monospace';
       cctx.textBaseline = 'top';
@@ -574,6 +814,24 @@ shareBtn.addEventListener('click', async () => {
     setStatus('share failed: ' + err.message, 'warn');
   }
 });
+
+const changelogLink = document.getElementById('changelog-link');
+const changelogDialog = document.getElementById('changelog-dialog');
+if (changelogLink && changelogDialog) {
+  const closeBtn = changelogDialog.querySelector('.changelog-close');
+  changelogLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    changelogDialog.showModal();
+  });
+  closeBtn?.addEventListener('click', () => changelogDialog.close());
+  changelogDialog.addEventListener('click', (e) => {
+    // backdrop click closes
+    const r = changelogDialog.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+      changelogDialog.close();
+    }
+  });
+}
 
 submitBtn.addEventListener('click', (e) => {
   e.preventDefault();

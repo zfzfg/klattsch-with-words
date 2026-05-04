@@ -112,6 +112,70 @@ h1 {
   color: #000;
 }
 
+.changelog-dialog {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0;
+  max-width: 36rem;
+  width: 90vw;
+  max-height: 80vh;
+  font-size: 0.9rem;
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+.changelog-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.changelog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+  background: #181818;
+  position: sticky;
+  top: 0;
+}
+.changelog-close { font-size: 0.75rem; padding: 0.2rem 0.55rem; }
+.changelog-body {
+  padding: 0.4rem 1rem 1rem;
+  overflow-y: auto;
+  max-height: calc(80vh - 3rem);
+}
+.changelog-body h3 {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.4rem;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+.changelog-body h3:first-child { margin-top: 0.4rem; }
+.changelog-body ul { margin: 0; padding-left: 1.4rem; }
+.changelog-body li { margin: 0.2rem 0; line-height: 1.5; }
+.changelog-body code {
+  background: #0c0c0c;
+  border: 1px solid var(--line);
+  padding: 0.05rem 0.3rem;
+  border-radius: 2px;
+  font-size: 0.85rem;
+  color: var(--fg);
+}
+
+.ja-greeting {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--dim);
+  font-family: ui-sans-serif, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+}
+.ja-greeting p { margin: 0; }
+.ja-greeting p + p { margin-top: 0.25rem; }
+.ja-greeting strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
 .outro {
   margin: 1.75rem 0 0.5rem;
   font-size: 0.85rem;
@@ -231,6 +295,47 @@ input[type=range] { vertical-align: middle; width: 14rem; }
   font-size: 0.8rem;
   min-height: 1.9rem;
 }
+
+.playback-display {
+  margin: 0 0 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: #0c0c0c;
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  letter-spacing: 0.05em;
+  color: var(--dim);
+  min-height: 1.9em;
+  max-height: 8em;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.playback-display:empty::before {
+  content: '(press speak to play; phrases will highlight as audio runs)';
+  font-style: italic;
+  opacity: 0.55;
+}
+.playback-display .active-pre {
+  background: rgba(255, 106, 0, 0.18);
+  color: var(--fg);
+  border-radius: 2px 0 0 2px;
+  padding: 1px 0;
+}
+.playback-display .active {
+  background: var(--accent);
+  color: #000;
+  border-radius: 2px;
+  padding: 1px 2px;
+  margin: -1px -2px;
+}
+.playback-display .active-pre + .active {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: 0;
+}
 .state-mirror .state-display {
   color: var(--dim);
   font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
@@ -276,6 +381,16 @@ input#filename, input#video-title {
 .export-options label {
   margin: 0;
   font-size: 0.78rem;
+}
+.export-options .checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+.export-options .checkbox-label input[type=checkbox] {
+  margin: 0;
+  cursor: pointer;
 }
 
 button#render-video { min-width: 6.6rem; text-align: center; }
