@@ -1,24 +1,20 @@
-# klattsch
+# klattsch (Text-to-Phoneme Edition)
 
 A primitive parallel-formant speech synthesizer in the browser. Late-70s / early-80s tier (Votrax, SAM).
 
-The name is a portmanteau of *Klatt* (Dennis Klatt, the formant-synth pioneer) and *Klatsch* (German for gossip / casual chat).
+**This is a fork by [@zfzfg](https://github.com/zfzfg).** It adds full **English Text-to-Phoneme** support using the CMU Pronouncing Dictionary. You can type normal English words (like `hello world`) and the synthesizer will automatically convert them to the correct ARPABET phonemes under the hood.
 
-[**Live demo**](https://tgies.github.io/klattsch/)
-
-[**Commercial support**](#commercial-support) - integration consulting from the author
+[**Original Project**](https://github.com/tgies/klattsch) by Tony Gies.
 
 ## What it does
 
-You type a phoneme string in [ARPABET](https://en.wikipedia.org/wiki/ARPABET), with optional directives, and the computer says it.
+You can type normal English text, or a phoneme string in [ARPABET](https://en.wikipedia.org/wiki/ARPABET), with optional directives, and the computer says it.
 
 ```
-HH AH L OW                        hello, default voice
-b140 HH AH L OW                   higher voice
+hello world                       normal text, automatically translated
+HH AH L OW                        hello in phonemes
+b140 hello                        higher voice, mixed with text
 bA3 HH AH L OW                    higher voice (note name)
-AY+15 D IH D                      "I did" with a rising contour
-D IH D DH AE(+40) T               "did THAT" with a transient pitch ornament on AE
-r200 bC#4 ( HH AH ) ( L OW )      sung syllables, one note per group
 ```
 
 See the in-app `syntax help` panel for the full directive table.

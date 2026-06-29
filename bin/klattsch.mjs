@@ -9,10 +9,22 @@ import {
   compileString, FormantSynth, encodeWav,
 } from '../src/engine/index.js';
 
-const [, , text, outPath = 'klattsch.wav'] = process.argv;
+const args = process.argv.slice(2);
+let text = '';
+let outPath = 'klattsch.wav';
+
+if (args[0] === '--text' || args[0] === '-t') {
+  text = args[1];
+  outPath = args[2] || 'klattsch.wav';
+} else {
+  text = args[0];
+  outPath = args[1] || 'klattsch.wav';
+}
+
 if (!text) {
-  console.error('usage: klattsch <phoneme-string> [output.wav]');
+  console.error('usage: klattsch [--text] <phoneme-or-text-string> [output.wav]');
   console.error('  e.g. klattsch "HH AH L OW" hello.wav');
+  console.error('  e.g. klattsch --text "hello world" hello.wav');
   process.exit(1);
 }
 

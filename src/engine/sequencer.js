@@ -1,6 +1,7 @@
 // Phoneme-string parser and schedule compiler
 
 import { banks, resolveBank } from './banks/index.js';
+import { textToPhonemes } from './g2p.js';
 
 const PAUSE_MS = { ',': 100, ';': 200, '.': 300 };
 
@@ -96,7 +97,7 @@ function classifyPart(part) {
     }
   }
 
-  const phoneme = part.match(/^([A-Z]+)(['!])?(?:\(([+-]\d+(?:\.\d+)?)\)|([+-]\d+(?:\.\d+)?))?$/);
+  const phoneme = part.match(/^([A-Z_]+)(['!])?(?:\(([+-]\d+(?:\.\d+)?)\)|([+-]\d+(?:\.\d+)?))?$/);
   if (phoneme) {
     const transientDelta = phoneme[3] !== undefined ? Number(phoneme[3]) : null;
     const stickyDelta = phoneme[4] !== undefined ? Number(phoneme[4]) : null;
@@ -154,6 +155,21 @@ export function tokenize(rawInput) {
     if (!tok) continue;
     tok.srcStart = srcStart;
     tok.srcEnd = srcEnd;
+
+    if (tok.type === 'unknown' && /^[a-z0-9']+$/i.test(part)) {
+      // It looks like an English word, try to translate it
+      const phonemesStr = textToPhonemes(part);
+      if (phonemesStr) {
+        const subTokens = tokenize(phonemesStr).tokens;
+        // Adjust source mappings for the sub-tokens to point to the original word
+        for (const subTok of subTokens) {
+          subTok.srcStart = srcStart;
+          subTok.srcEnd = srcEnd;
+          tokens.push(subTok);
+        }
+        continue;
+      }
+    }
 
     if (tok.type === 'stress_mark') {
       for (let j = tokens.length - 1; j >= 0; j--) {

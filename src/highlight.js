@@ -108,6 +108,10 @@ function classify(part, state) {
     return pieces;
   }
 
+  if (/^[a-z0-9']+$/i.test(part)) {
+    return [['hl-text', part]];
+  }
+
   return [['hl-unknown', part]];
 }
 

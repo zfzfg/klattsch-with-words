@@ -1,7 +1,7 @@
 {
-  "name": "klattsch",
+  "name": "@zfzfg/klattsch",
   "version": "0.5.0",
-  "description": "Primitive parallel-formant speech synthesis engine.",
+  "description": "Primitive parallel-formant speech synthesis engine with Text-to-Phoneme support.",
   "type": "module",
   "main": "./src/engine/index.js",
   "exports": {
@@ -11,6 +11,7 @@
     "./engine/sequencer.js": "./src/engine/sequencer.js",
     "./engine/phonemes.js": "./src/engine/phonemes.js",
     "./engine/wav.js": "./src/engine/wav.js",
+    "./engine/g2p.js": "./src/engine/g2p.js",
     "./formant-worklet.js": "./src/formant-worklet.js",
     "./package.json": "./package.json"
   },
@@ -34,19 +35,21 @@
     "phoneme",
     "arpabet",
     "voice",
-    "synthesizer"
+    "synthesizer",
+    "text-to-speech"
   ],
-  "author": "Tony Gies <tgies@tgies.net> (https://github.com/tgies)",
+  "author": "zfzfg (Original by Tony Gies)",
   "license": "MIT",
-  "homepage": "https://tgies.github.io/klattsch/",
+  "homepage": "https://github.com/zfzfg/klattsch#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tgies/klattsch.git"
+    "url": "git+https://github.com/zfzfg/klattsch.git"
   },
   "bugs": {
-    "url": "https://github.com/tgies/klattsch/issues"
+    "url": "https://github.com/zfzfg/klattsch/issues"
   },
   "scripts": {
-    "dev": "python3 -m http.server 8088"
+    "dev": "python3 -m http.server 8088",
+    "build:dict": "node tools/download-cmudict.js"
   }
 }
