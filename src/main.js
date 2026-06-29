@@ -316,7 +316,7 @@ async function renderWav(text) {
   const rendered = await offline.startRendering();
   const { bytes, gain } = encodeWav(rendered.getChannelData(0), sr, {
     metadata: {
-      software: 'klattsch · https://tgies.github.io/klattsch',
+      software: 'klattsch (with words) · https://zfzfg.github.io/klattsch-with-words',
       comment: text,
     },
   });
@@ -611,7 +611,7 @@ async function renderVideo(text) {
     cctx.font = '22px ui-monospace, "Cascadia Code", Consolas, monospace';
     cctx.textBaseline = 'top';
     cctx.textAlign = 'right';
-    cctx.fillText('klattsch  ·  tgies.github.io/klattsch', W - 24, 24);
+    cctx.fillText('klattsch (with words)  ·  zfzfg.github.io/klattsch-with-words', W - 24, 24);
     cctx.restore();
 
     const titleText = videoTitleInput.value.trim();
@@ -943,7 +943,7 @@ submitBtn.addEventListener('click', (e) => {
     '## label\n\n\n\n## phoneme string\n\n```\n' +
     seqInput.value +
     '\n```\n\n## what it is\n\n\n\n## credit\n\n';
-  const url = `https://github.com/tgies/klattsch/issues/new?template=preset.md&body=${encodeURIComponent(body)}`;
+  const url = `https://github.com/zfzfg/klattsch-with-words/issues/new?template=preset.md&body=${encodeURIComponent(body)}`;
   window.open(url, '_blank', 'noopener');
 });
 
@@ -994,15 +994,10 @@ updateStateMirror();
 
 const CONSENT_KEY = 'klattsch.analytics-consent';
 function gtagSafe(...args) {
-  if (typeof window.gtag === 'function') window.gtag(...args);
+  // disabled for fork
 }
 function updateAnalyticsConsent(granted) {
-  gtagSafe('consent', 'update', {
-    analytics_storage: granted ? 'granted' : 'denied',
-    ad_storage: granted ? 'granted' : 'denied',
-    ad_user_data: granted ? 'granted' : 'denied',
-    ad_personalization: granted ? 'granted' : 'denied',
-  });
+  // disabled for fork
 }
 function getConsent() {
   try {

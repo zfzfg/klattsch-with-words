@@ -40,7 +40,7 @@ synth.process(buf);
 
 const { bytes, gain } = encodeWav(buf, sampleRate, {
   metadata: {
-    software: 'klattsch · https://tgies.github.io/klattsch',
+    software: 'klattsch (with words) · https://zfzfg.github.io/klattsch-with-words',
     comment: text,
   },
 });

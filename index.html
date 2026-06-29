@@ -16,21 +16,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Condensed:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="src/style.css?v=0.5.0">
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('consent', 'default', {
-      'analytics_storage': 'denied',
-      'ad_storage': 'denied',
-      'ad_user_data': 'denied',
-      'ad_personalization': 'denied'
-    });
-  </script>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D20MDP81EK"></script>
-  <script>
-    gtag('js', new Date());
-    gtag('config', 'G-D20MDP81EK');
-  </script>
 </head>
 <body>
   <div class="page">
@@ -59,78 +44,17 @@
       </svg>
       <div class="title-block">
         <h1 class="wordmark">klattsch</h1>
-        <p class="subtitle">a retro formant speech synthesizer</p>
+        <p class="subtitle">a retro formant speech synthesizer<br><b>(text-to-phoneme edition)</b></p>
       </div>
     </div>
     <p class="support">
-      <a href="https://github.com/tgies/klattsch" target="_blank" rel="noopener">source</a>
-      ·
-      <a href="https://discord.gg/9YESUYG4xC" target="_blank" rel="noopener">discord</a>
+      <a href="https://github.com/zfzfg/klattsch-with-words" target="_blank" rel="noopener">source</a>
       ·
       <a href="#showcase">gallery</a>
       ·
-      <a href="mailto:tgies@tgies.net?subject=klattsch">email</a>
-      ·
       <a href="#" id="changelog-link">changelog</a>
-      <span class="support-sep">|</span>
-      <span class="support-label">support via:</span>
-      <a href="https://github.com/sponsors/tgies" target="_blank" rel="noopener">gh sponsors</a>
-      ·
-      <a href="https://ko-fi.com/crashunited" class="support-chip" target="_blank" rel="noopener">ko-fi</a>
-      ·
-      <a href="https://cash.app/$tgies" target="_blank" rel="noopener">cashapp</a>
     </p>
   </header>
-
-  <section class="news">
-    <details class="news-details">
-    <summary>
-      <h2 class="news-head">news</h2>
-      <span class="news-ticker" id="news-ticker"></span>
-    </summary>
-    <ul class="news-list">
-      <li>
-        <span class="news-chip">new</span>
-        <span class="news-body">klattsch is integrated into <a href="https://mikoto.studio/" target="_blank" rel="noopener">mikoto studio</a>.</span>
-      </li>
-      <li>
-        <span class="news-chip">new</span>
-        <span class="news-body">community gallery: covers and songs people made with klattsch.</span>
-        <a class="news-cta" href="#showcase">watch →</a>
-      </li>
-      <li>
-        <span class="news-chip soon">soon</span>
-        <span class="news-body"><strong>furnace tracker</strong> and <strong>openutau</strong> integrations are coming very soon.</span>
-      </li>
-      <li>
-        <span class="news-chip">new</span>
-        <span class="news-body">japanese vowels are in.</span>
-        <a class="news-cta" href="#bank-select">phoneme bank dropdown →</a>
-      </li>
-      <li>
-        <span class="news-chip">new</span>
-        <span class="news-body">klattsch has a discord now.</span>
-        <a class="news-cta" href="https://discord.gg/9YESUYG4xC" target="_blank" rel="noopener">join →</a>
-      </li>
-    </ul>
-    </details>
-  </section>
-
-  <aside class="thank-you">
-    <details class="thank-you-en">
-      <summary><strong>a message from the creator.</strong></summary>
-      <p>i'm amazed at the response my little toy has gotten! the songs and videos and other fun stuff people are making have been amazing to see. you all made a dream come true for me. i love making things that people can use to create, share, and express themselves, and i hope to keep building things like this. the support links up above really help keep me at that, if you're able! <strong>but what helps most of all is to keep enthusiastically sharing your amazing creations far and wide. tag me <a href="https://x.com/me_irl" target="_blank" rel="noopener">@me_irl</a>! #klattsch</strong></p>
-    </details>
-    <details class="thank-you-ja" lang="ja">
-      <summary><strong>日本のユーザーの皆様へ</strong></summary>
-      <p>自分のささやかなおもちゃがこんなに反響をいただけるなんて、本当に驚いています！皆さんが作ってくれた歌や動画、その他いろいろな楽しい作品を見られるのは、本当に嬉しい気持ちでいっぱいです。皆さんのおかげで、夢が叶いました。人が何かを作ったり、共有したり、自分を表現したりするためのものを作るのが、僕は本当に好きで、これからもこういうものを作り続けていけたらと思っています。日本語の音素対応など、より使いやすくするための改良も少しずつ進めています。上のサポートリンクからのご支援は、続けていくための大きな後押しになります。よろしければぜひ！<strong>そして何よりも、皆さんが作った素敵な作品を、ぜひどんどん広くシェアしていただけることが、一番の助けになります。<a href="https://x.com/me_irl" target="_blank" rel="noopener">@me_irl</a> のタグもぜひ！#klattsch</strong></p>
-    </details>
-  </aside>
-  <script>
-    if (matchMedia('(min-width: 720px)').matches) {
-      document.querySelectorAll('.thank-you details').forEach(function (d) { d.setAttribute('open', ''); });
-    }
-  </script>
 
   <section id="main">
     <div class="main-col main-col-a">
